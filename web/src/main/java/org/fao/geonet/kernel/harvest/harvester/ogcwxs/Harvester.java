@@ -206,21 +206,26 @@ class Harvester extends BaseAligner {
 
         xml = req.execute();
 
-        // -----------------------------------------------------------------------
-        // --- remove old metadata
+        
+        /*
+         * Removes only the service MD associated with the service. Keeping the
+         * already harvested data MD, because there is no point removing them
+         * and reinserting them if they did not change at all. see
+         * https://github.com/geonetwork/core-geonetwork/issues/893
+         */
         for (String uuid : localUuids.getUUIDs()) {
             String id = localUuids.getID(uuid);
 
             if (log.isDebugEnabled())
                 log.debug("  - Removing old metadata before update with id: " + id);
 
-            // Remove thumbnails
-            unsetThumbnail(id);
-
-            // Remove metadata
-            dataMan.deleteMetadata(context, dbms, id);
-
-            result.locallyRemoved++;
+            if (isServiceMetadata(dataMan.getMetadata(dbms, id))) {
+                // Remove thumbnails
+                unsetThumbnail(id);
+                // Remove metadata
+                dataMan.deleteMetadata(context, dbms, id);
+                result.locallyRemoved++;
+            }
         }
 
         if (result.locallyRemoved > 0)
@@ -236,6 +241,35 @@ class Harvester extends BaseAligner {
         return result;
     }
 
+    /**
+     * Checks if a MD is a service metadata or a data metadata.
+     *
+     * @param md
+     *            a Metadata to be tested
+     *
+     * @return true if the provided MD is a service metadata, false if it is a
+     *         data metadata.
+     * 
+     * @throws JDOMException
+     *
+     *             TODO: it might be misplaced here, and shall go to ISO19139/
+     *             Xml Utils specific classes.
+     *
+     */
+    private boolean isServiceMetadata(Element md) throws JDOMException {
+        Namespace gmd = Namespace.getNamespace("gmd", "http://www.isotc211.org/2005/gmd");
+        Namespace gco = Namespace.getNamespace("gco", "http://www.isotc211.org/2005/gco");
+        Namespace srv = Namespace.getNamespace("srv", "http://www.isotc211.org/2005/srv");
+        
+        XPath xp = XPath.newInstance(".//gmd:identificationInfo/srv:SV_ServiceIdentification|"
+                + ".//gmd:identificationInfo/*[contains(@gco:isoType, 'SV_ServiceIdentification')]");
+        xp.addNamespace(gmd);
+        xp.addNamespace(gco);
+        xp.addNamespace(srv);
+        List nodes = xp.selectNodes(md);
+        return ! nodes.isEmpty();
+    }
+    
     /**
      * Add metadata to the node for a WxS service
      * 
@@ -255,7 +289,7 @@ class Harvester extends BaseAligner {
         localCateg = new CategoryMapper(dbms);
         localGroups = new GroupMapper(dbms);
 
-        // md5 the full capabilities URL
+        // sha1 the full capabilities URL
         String uuid = Sha1Encoder.encodeString(this.capabilitiesUrl); // is the
                                                                       // service
                                                                       // identifier
@@ -265,8 +299,9 @@ class Harvester extends BaseAligner {
                 + "/OGCWxSGetCapabilitiesto19119/" + "/OGC" + params.ogctype.substring(0, 3)
                 + "GetCapabilities-to-ISO19119_ISO19139.xsl";
 
-        if (log.isDebugEnabled())
+        if (log.isDebugEnabled()) {
             log.debug("  - XSLT transformation using " + styleSheet);
+        }
 
         Map<String, String> param = new HashMap<String, String>();
         param.put("lang", params.lang);
@@ -282,7 +317,7 @@ class Harvester extends BaseAligner {
             result.unknownSchema++;
         }
 
-        // --- Create metadata for layers only if user ask for
+        // --- Create metadata for layers only if the user asked for it
         if (params.useLayer || params.useLayerMd) {
             // Load CRS
             // TODO
@@ -308,7 +343,6 @@ class Harvester extends BaseAligner {
                     if (s != null)
                         layersRegistry.add(s);
                 }
-
                 // Update ISO19119 for data/service links creation (ie.
                 // operatesOn element)
                 // The editor will support that but it will make quite heavy
@@ -498,7 +532,7 @@ class Harvester extends BaseAligner {
 
         log.info("  - Loading layer: " + reg.name);
 
-        // --- md5 the full capabilities URL + the layer, coverage or feature
+        // --- sha1 the full capabilities URL + the layer, coverage or feature
         // name
         reg.uuid = Sha1Encoder.encodeString(this.capabilitiesUrl + "#" + reg.name); // the dataset identifier
 
@@ -548,8 +582,7 @@ class Harvester extends BaseAligner {
                 if (onLineSrc != null) {
                     org.jdom.Attribute href = onLineSrc.getAttribute("href", xlink);
 
-                    if (href != null) { // No metadataUrl attribute for that
-                                        // layer
+                    if (href != null) { // No metadataUrl attribute for that layer
                         mdXml = href.getValue();
                         try {
                             xml = Xml.loadFile(new URL(mdXml));
@@ -561,8 +594,6 @@ class Harvester extends BaseAligner {
 
                             schema = dataMan.autodetectSchema(xml, null); // ie. iso19115 or 139 or DC
                             // Extract uuid from loaded xml document
-                            // FIXME : uuid could be duplicate if metadata
-                            // already exist in catalog
                             reg.uuid = dataMan.extractUUID(schema, xml);
                             exist = dataMan.existsMetadataUuid(dbms, reg.uuid);
 
@@ -602,7 +633,7 @@ class Harvester extends BaseAligner {
             else if (params.ogctype.substring(0, 3).equals("WFS") && params.ogctype.substring(3, 8).equals("1.1.0")) {
                 try {
                     xml = getWfsMdFromMetadataUrl(layer);
-                    // applying the same logic as above (TODO: DRY)
+                    // applying the same logic as above with WMS
                     if (xml.getName().equals("GetRecordByIdResponse")) {
                         xml = (Element) xml.getChildren().get(0);
                     }
@@ -628,7 +659,7 @@ class Harvester extends BaseAligner {
                 }
             }
         }
-        // --- using GetCapabilities document
+        // --- using GetCapabilities document to create a brand-new data Metadata
         if (!loaded) {
             try {
                 // --- set XSL param to filter on layer and set uuid

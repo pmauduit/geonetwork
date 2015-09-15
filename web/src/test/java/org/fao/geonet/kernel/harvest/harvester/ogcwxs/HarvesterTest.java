@@ -1,11 +1,13 @@
 package org.fao.geonet.kernel.harvest.harvester.ogcwxs;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
@@ -17,6 +19,7 @@ import jeeves.utils.Xml;
 
 import org.fao.geonet.GeonetContext;
 import org.jdom.Element;
+import org.jdom.JDOMException;
 import org.jdom.filter.Filter;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -120,5 +123,25 @@ public class HarvesterTest {
 			fileNotFoundExCaught = e1 instanceof FileNotFoundException;
 		}
 		assertTrue("No exception caught, expected one (no MdUrl found)", fileNotFoundExCaught);
-	}	
+	}
+	
+	@Test
+	public void testIsServiceMetadata() throws Exception {
+	    URL dataMdUrl = this.getClass().getResource("/org/fao/geonet/kernel/valid-metadata.iso19139.xml");
+	    URL sceMdUrl = this.getClass().getResource("/org/fao/geonet/kernel/valid-service-metadata.iso19139.xml");
+	    
+	    assumeNotNull(dataMdUrl, sceMdUrl);
+	    
+	    Element dataMdElem = Xml.loadFile(dataMdUrl);
+	    Element sceMdElem = Xml.loadFile(sceMdUrl);
+
+        ServiceContext ctx = Mockito.mock(ServiceContext.class);
+        Mockito.when(ctx.getHandlerContext(Mockito.anyString())).thenReturn(Mockito.mock(GeonetContext.class));
+        Harvester h = new Harvester(null, ctx, null, null);
+        Method m = ReflectionUtils.findMethod(h.getClass(), "isServiceMetadata", Element.class);
+        m.setAccessible(true);
+        
+        assertFalse("false expected on a data MD, calling isServiceMetadata()", (Boolean) m.invoke(h, dataMdElem));
+        assertTrue("true expected on a service MD, calling isServiceMetadata()", (Boolean) m.invoke(h, sceMdElem));
+	}
 }

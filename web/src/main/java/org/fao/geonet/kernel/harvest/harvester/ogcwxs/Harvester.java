@@ -166,6 +166,7 @@ class Harvester extends BaseAligner {
         schemaMan = gc.getSchemamanager();
     }
 
+    protected List<String> previouslyHarvested = new ArrayList<String>();
     // ---------------------------------------------------------------------------
     // ---
     // --- API methods
@@ -177,6 +178,28 @@ class Harvester extends BaseAligner {
     public HarvestResult harvest() throws Exception {
         Element xml;
 
+        // TODO rewrite completely, so that it can be testable !
+        // 0. void cleanupPreviousServiceMetadata()
+        // 1. Element retrieveGetCapabilitiesDocument(URL url)
+        // 2. Element transformGetCapabilitiesToServiceMetadata(Element capa)
+        // 3. if (userLayer || userLayerMd)
+        // 3.1.  List<Element> extractLayerFromGetCapabilities(Element capa)
+        // 3.2.  for each (Element) layer do
+        // 3.2.1    if userLayerMd then 
+        // 3.2.1.1    extractRemoteMetadataUrl(Element layer)
+        // 3.2.1.2    dataMetadata <= retrieveRemoteMetadata(URL url)
+        // 3.2.1.4    if error previousError <= true
+        //          end
+        //       end
+        // 3.3.  if (userLayer || (userLayerMd && previousError))
+        // 3.3.1.  dataMetadata <= generateDataMetadataFromLayer(Element layer)
+        // 3.4.1 if (alreadyInLocalCatalog(dataMetadata)
+        // 3.4.2    insertMetadata(dataMetadata)
+        // 3.5.1 else
+        // 3.5.2    updateMetadata(dataMetadata)
+        // 3.6.  generatesOperatesOnAndUpdateServiceMetadata(Element serviceMetadata, List<Element> dataMetadata)
+        
+        
         log.info("Retrieving remote metadata information for : " + params.name);
 
         // Clean all before harvest : Remove/Add mechanism. If harvest failed
@@ -215,16 +238,16 @@ class Harvester extends BaseAligner {
          */
         for (String uuid : localUuids.getUUIDs()) {
             String id = localUuids.getID(uuid);
-
-            if (log.isDebugEnabled())
-                log.debug("  - Removing old metadata before update with id: " + id);
-
             if (isServiceMetadata(dataMan.getMetadata(dbms, id))) {
                 // Remove thumbnails
                 unsetThumbnail(id);
                 // Remove metadata
                 dataMan.deleteMetadata(context, dbms, id);
                 result.locallyRemoved++;
+            } else {
+                // push into the previouslyHarvested metadata list for later use
+                log.info("Adding MD uuid " + uuid + " to the metadata previously harvested list.");
+                previouslyHarvested.add(uuid);
             }
         }
 
@@ -271,11 +294,20 @@ class Harvester extends BaseAligner {
     }
     
     /**
+     * Fetches a remote XML document using the parameters provided for the harvesting endpoint.
+     * If an account is given to query the remote service, it might be necessary to also use it to get the remote metadata.
+     * 
+     */
+    
+    /**
      * Add metadata to the node for a WxS service
      * 
-     * 1.Use GetCapabilities Document 2.Transform using XSLT to iso19119 3.Loop
-     * through layers 4.Create md for layer 5.Add operatesOn elem with uuid
-     * 6.Save all
+     * - 1.Use GetCapabilities Document
+     * - 2.Transform using XSLT to iso19119
+     * - 3.Loop through layers
+     * - 4.Create md for layer
+     * - 5.Add operatesOn elem with uuid
+     * - 6.Save all
      *
      * @param capa
      *            GetCapabilities document
@@ -350,9 +382,19 @@ class Harvester extends BaseAligner {
                 md = addOperatesOnUuid(md, layersRegistry);
             }
         }
+        
+        // Removes remaining metadatas from previouslyHarvested
+        for (String uuidPrev : previouslyHarvested) {
+            try {
+                log.info("Removing metadata id " + uuidPrev + " which is no longer referenced in the GetCapability response");
+                dataMan.deleteMetadata(context, dbms, dataMan.getMetadataId(dbms, uuidPrev));
+            } catch (Exception e) {
+                log.error("Error occured while trying to remove MD id: " + uuidPrev + ". Cause: " + e.getMessage());
+            }
+        }
 
         // Save iso19119 metadata in DB
-        log.info("  - Adding metadata for services with " + uuid);
+        log.info("  - Adding metadata for services with uuid: " + uuid);
         DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
         Date date = new Date();
 
@@ -502,7 +544,7 @@ class Harvester extends BaseAligner {
                 + "GetCapabilitiesLayer-to-19139.xsl";
         Element xml = null;
 
-        boolean exist;
+        boolean exist, needsUpdate = false;
         boolean loaded = false;
 
         if (params.ogctype.substring(0, 3).equals("WMS")) {
@@ -598,11 +640,11 @@ class Harvester extends BaseAligner {
                             exist = dataMan.existsMetadataUuid(dbms, reg.uuid);
 
                             if (exist) {
-                                log.warning("    Metadata uuid already exist in the catalogue. Metadata will not be loaded.");
+                                log.warning("    Metadata uuid "+ reg.uuid +" already exist in the catalogue. Metadata will be updated.");
+                                previouslyHarvested.remove(reg.uuid);
                                 result.layerUuidExist++;
-                                // Return the layer info even if it exists in order
-                                // to link to the service record.
-                                return reg;
+                                loaded = true;
+                                needsUpdate = true;
                             }
 
                             if (schema == null) {
@@ -641,9 +683,12 @@ class Harvester extends BaseAligner {
                     reg.uuid = dataMan.extractUUID(schema, xml);
                     exist = dataMan.existsMetadataUuid(dbms, reg.uuid);
                     if (exist) {
-                        log.warning("    Metadata uuid already exist in the catalogue. Metadata will not be loaded.");
+                        // TODO needs update ?
+                        log.warning("    Metadata uuid "+reg.uuid+" already exist in the catalogue. Metadata will be updated.");
+                        previouslyHarvested.remove(reg.uuid);
                         result.layerUuidExist++;
-                        return reg;
+                        loaded = true;
+                        needsUpdate = true;
                     }
                     if (schema == null) {
                         log.warning("    Failed to detect schema from metadataUrl file. Use GetCapabilities document instead for that layer.");
@@ -670,28 +715,46 @@ class Harvester extends BaseAligner {
                 param.put("topic", params.topic);
                 xml = Xml.transform(capa, styleSheet, param);
                 if (log.isDebugEnabled())
-                    log.debug("  - Layer loaded using GetCapabilities document.");
-
+                    log.info("  - Layer loaded using GetCapabilities document.");
+                
+                // Check if the MD already exist
+                exist = dataMan.existsMetadataUuid(dbms, reg.uuid);
+                if (exist) {
+                    log.info("Metadata UUID " + reg.uuid + " (automatically generated from GetCapability response) already in the catalogue." );
+                    // TODO needs update ?
+                    previouslyHarvested.remove(reg.uuid);
+                    needsUpdate = true;
+                }
             } catch (Exception e) {
                 log.warning("  - Failed to do XSLT transformation on Layer element : " + e.getMessage());
             }
         }
 
-        // Insert in db
+        // Insert/Update in db
         try {
 
-            //
-            // insert metadata
-            //
+
             String group = null, isTemplate = null, docType = null, title = null, category = null;
             boolean ufo = false, indexImmediate = false;
 
             schema = dataMan.autodetectSchema(xml);
-
-            reg.id = dataMan.insertMetadata(context, dbms, schema, xml,
-                    context.getSerialFactory().getSerial(dbms, "Metadata"), reg.uuid, Integer.parseInt(params.ownerId),
-                    group, params.uuid, isTemplate, docType, title, category, date, date, ufo, indexImmediate);
-
+            //
+            // inserts the data metadata
+            //
+            if (! needsUpdate) {
+                log.info("  - inserting new metadata uuid: " + reg.uuid);
+                reg.id = dataMan.insertMetadata(context, dbms, schema, xml,
+                        context.getSerialFactory().getSerial(dbms, "Metadata"), reg.uuid,
+                        Integer.parseInt(params.ownerId), group, params.uuid, isTemplate, docType, title, category,
+                        date, date, ufo, indexImmediate);
+            }
+            // updates it instead
+            else {
+                reg.id = dataMan.getMetadataId(dbms, reg.uuid);
+                log.info("  - updating existing metadata uuid: " + reg.uuid);
+                dataMan.updateMetadata(context, dbms, reg.id, xml, false, ufo, indexImmediate,
+                        params.lang, null, false);
+            }
             xml = dataMan.updateFixedInfo(schema, reg.id, params.uuid, xml, null, DataManager.UpdateDatestamp.no, dbms,
                     context);
 
@@ -744,6 +807,7 @@ class Harvester extends BaseAligner {
             log.info("  - metadata loaded with uuid: " + reg.uuid + "/internal id: " + reg.id);
 
         } catch (Exception e) {
+            e.printStackTrace();
             log.warning("  - Failed to load layer metadata : " + e.getMessage());
             result.unretrievable++;
             return null;
@@ -753,9 +817,12 @@ class Harvester extends BaseAligner {
     }
 
     /**
+     * Gets a remote data metadata when referenced in the MetadataURL WFS
+     * GetCapability for the current featureType (element layer in parameter).
      * 
      * @param layer
-     * @return
+     *            the featureType XML fragment
+     * @return the remote data metadata as an XML element
      */
     private Element getWfsMdFromMetadataUrl(Element layer) throws Exception {
         String dummyNsPrefix = "";
@@ -774,7 +841,14 @@ class Harvester extends BaseAligner {
         if (onLineSrc == null) {
             throw new Exception("Online resource not found in the WFS XML fragment. Skipping.");
         } else {
-            return Xml.loadFile(new URL(onLineSrc.getText()));
+            try {
+                // TODO: need to pass the credentials in
+                Element ret =  Xml.loadFile(new URL(onLineSrc.getText()));
+                return ret;
+            } catch (Exception e) {
+                log.error("Unable to fetch " + onLineSrc.getText() + ": " + e.getMessage());
+                throw e;
+            }
         }
     }
 
@@ -957,7 +1031,7 @@ class Harvester extends BaseAligner {
 
     /**
      * Store the GetCapabilities operation URL. This URL is scrambled and used
-     * to uniquelly identified the service. The idea of generating a uuid based
+     * to uniquely identified the service. The idea of generating a uuid based
      * on the URL instead of a randomuuid is to be able later to do an update of
      * the service metadata (which could have been updated in the catalogue)
      * instead of a delete/insert operation.

@@ -7,23 +7,23 @@ import static org.junit.Assume.assumeTrue;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import jeeves.interfaces.Logger;
 import jeeves.server.context.ServiceContext;
 import jeeves.utils.Xml;
 
 import org.fao.geonet.GeonetContext;
 import org.jdom.Element;
-import org.jdom.JDOMException;
 import org.jdom.filter.Filter;
 import org.junit.Test;
 import org.mockito.Mockito;
 import org.springframework.util.ReflectionUtils;
+
 
 
 
@@ -111,7 +111,9 @@ public class HarvesterTest {
 		Element featureType = prepareFeatureTypeFragment(fixture, fileNotfound.toString());
 		ServiceContext ctx = Mockito.mock(ServiceContext.class);
 		Mockito.when(ctx.getHandlerContext(Mockito.anyString())).thenReturn(Mockito.mock(GeonetContext.class));
-		Harvester h = new Harvester(null, ctx, null, null);
+		Logger mockedLogger = Mockito.mock(Logger.class);
+		
+		Harvester h = new Harvester(mockedLogger, ctx, null, null);
 		Method m = ReflectionUtils.findMethod(h.getClass(), "getWfsMdFromMetadataUrl", Element.class);
 		m.setAccessible(true);
 
@@ -122,14 +124,14 @@ public class HarvesterTest {
 			Throwable e1 = e.getCause();
 			fileNotFoundExCaught = e1 instanceof FileNotFoundException;
 		}
-		assertTrue("No exception caught, expected one (no MdUrl found)", fileNotFoundExCaught);
+		assertTrue("No exception caught, or of wrong type, expected one (no MdUrl found)", fileNotFoundExCaught);
 	}
 	
 	@Test
 	public void testIsServiceMetadata() throws Exception {
 	    URL dataMdUrl = this.getClass().getResource("/org/fao/geonet/kernel/valid-metadata.iso19139.xml");
 	    URL sceMdUrl = this.getClass().getResource("/org/fao/geonet/kernel/valid-service-metadata.iso19139.xml");
-	    
+
 	    assumeNotNull(dataMdUrl, sceMdUrl);
 	    
 	    Element dataMdElem = Xml.loadFile(dataMdUrl);

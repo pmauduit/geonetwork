@@ -6,7 +6,7 @@ import org.jdom.Element;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.security.web.access.intercept.FilterInvocationSecurityMetadataSource;
 import org.springframework.security.web.access.intercept.FilterSecurityInterceptor;
-import org.springframework.security.web.util.RegexRequestMatcher;
+import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 
 import javax.annotation.Nullable;
 import java.util.Map;

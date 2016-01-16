@@ -56,8 +56,10 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -472,7 +474,7 @@ public class EditLib {
      *                                  Otherwise only existing xpaths will be updated.
      * @return the number of updates.
      */
-    public int addElementOrFragmentFromXpaths(Element metadataRecord, Map<String, AddElemValue> xmlAndXpathInputs,
+    public int addElementOrFragmentFromXpaths(Element metadataRecord, LinkedHashMap<String, AddElemValue> xmlAndXpathInputs,
                                               MetadataSchema metadataSchema, boolean createXpathNodeIfNotExist) {
 
 
@@ -487,7 +489,6 @@ public class EditLib {
                 numUpdated ++;
             }
         }
-
         return numUpdated;
     }
 

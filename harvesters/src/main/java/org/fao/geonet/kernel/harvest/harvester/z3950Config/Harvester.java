@@ -153,7 +153,7 @@ class Harvester implements IHarvester<HarvestResult>
 		}
 		catch(Exception e)
 		{
-            HarvestError error = new HarvestError(e, log);
+            HarvestError error = new HarvestError(context, e, log);
             error.setDescription("Raised exception when searching : "+ e);
             this.errors.add(error);
             error.printLog(log);

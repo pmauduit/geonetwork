@@ -147,12 +147,12 @@ class Harvester implements IHarvester<HarvestResult> {
                 log.error("Unknown error trying to harvest");
                 log.error(t.getMessage());
                 log.error(t);
-                errors.add(new HarvestError(t, log));
+                errors.add(new HarvestError(context, t, log));
             } catch (Throwable t) {
                 log.fatal("Something unknown and terrible happened while harvesting");
                 log.fatal(t.getMessage());
                 t.printStackTrace();
-                errors.add(new HarvestError(t, log));
+                errors.add(new HarvestError(context, t, log));
             }
         }
 
@@ -164,12 +164,12 @@ class Harvester implements IHarvester<HarvestResult> {
                 log.error("Unknown error trying to harvest");
                 log.error(t.getMessage());
                 log.error(t);
-                errors.add(new HarvestError(t, log));
+                errors.add(new HarvestError(context, t, log));
             } catch (Throwable t) {
                 log.fatal("Something unknown and terrible happened while harvesting");
                 log.fatal(t.getMessage());
                 t.printStackTrace();
-                errors.add(new HarvestError(t, log));
+                errors.add(new HarvestError(context, t, log));
             }
         }
 
@@ -229,7 +229,7 @@ class Harvester implements IHarvester<HarvestResult> {
 				records.add(new RecordInfo(uuid, changeDate, schema, source));
 			}
             } catch (Exception e) {
-                HarvestError harvestError = new HarvestError(e, log);
+                HarvestError harvestError = new HarvestError(context, e, log);
                 harvestError.setDescription("Malformed element '"
                         + o.toString() + "'");
                 harvestError
@@ -259,10 +259,10 @@ class Harvester implements IHarvester<HarvestResult> {
 			return response;
         } catch (BadSoapResponseEx e) {
             log.warning("Raised exception when searching : " + e.getMessage());
-            this.errors.add(new HarvestError(e, log));
+            this.errors.add(new HarvestError(context, e, log));
             throw new OperationAbortedEx("Raised exception when searching", e);
         } catch (BadXmlResponseEx e) {
-            HarvestError harvestError = new HarvestError(e, log);
+            HarvestError harvestError = new HarvestError(context, e, log);
             harvestError.setDescription("Error while searching on "
                     + params.getName() + ". Excepted XML, returned: "
                     + e.getMessage());
@@ -270,14 +270,14 @@ class Harvester implements IHarvester<HarvestResult> {
             this.errors.add(harvestError);
             throw new OperationAbortedEx("Raised exception when searching", e);
         } catch (IOException e) {
-            HarvestError harvestError = new HarvestError(e, log);
+            HarvestError harvestError = new HarvestError(context, e, log);
             harvestError.setDescription("Error while searching on "
                     + params.getName() + ". ");
             harvestError.setHint("Check with your administrator.");
             this.errors.add(harvestError);
             throw new OperationAbortedEx("Raised exception when searching", e);
         } catch(Exception e) {
-            HarvestError harvestError = new HarvestError(e, log);
+            HarvestError harvestError = new HarvestError(context, e, log);
             harvestError.setDescription("Error while searching on "
                     + params.getName() + ". ");
             harvestError.setHint("Check with your administrator.");

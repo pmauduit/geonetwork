@@ -282,7 +282,7 @@ class Harvester extends BaseAligner implements IHarvester<Z3950ServerResults> {
                             md = Xml.transform(md, thisXslt);
                             if(log.isDebugEnabled()) log.debug("After transform: "+Xml.getString(md));
                         } catch (Exception e) {
-                            HarvestError error = new HarvestError(e, log);
+                            HarvestError error = new HarvestError(context, e, log);
                             error.setDescription("Cannot transform XML, ignoring. Error was: "+e.getMessage());
                             this.errors.add(error);
                             error.printLog(log);
@@ -303,7 +303,7 @@ class Harvester extends BaseAligner implements IHarvester<Z3950ServerResults> {
                     try {
                         uuid = dataMan.extractUUID(schema, md);
                     } catch (Exception e) {
-                        HarvestError error = new HarvestError(e, log);
+                        HarvestError error = new HarvestError(context, e, log);
                         error.setDescription("Unable to extract UUID. " + e.getMessage());
                         this.errors.add(error);
                         error.printLog(log);
@@ -367,7 +367,7 @@ class Harvester extends BaseAligner implements IHarvester<Z3950ServerResults> {
 
                         id = String.valueOf(metadata.getId());
                     } catch (Exception e) {
-                        HarvestError error = new HarvestError(e, log);
+                        HarvestError error = new HarvestError(context, e, log);
                         error.setDescription("Unable to insert metadata. "+e.getMessage());
                         this.errors.add(error);
                         error.printLog(log);

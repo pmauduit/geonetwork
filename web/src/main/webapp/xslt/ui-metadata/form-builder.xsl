@@ -73,6 +73,7 @@
     element of same kind. eg. do not display label. -->
     <xsl:param name="isFirst" required="no" as="xs:boolean" select="true()"/>
 
+    <xsl:param name="isReadOnly" required="no" as="xs:boolean" select="false()"/>
 
     <xsl:variable name="isMultilingual" select="count($value/values) > 0"/>
 
@@ -85,7 +86,8 @@
       <xsl:choose>
         <xsl:when
           test="($parentEditInfo and $parentEditInfo/@min = 1 and $parentEditInfo/@max = 1) or 
-          (not($parentEditInfo) and $editInfo and $editInfo/@min = 1 and $editInfo/@max = 1)">
+          (not($parentEditInfo) and $editInfo and $editInfo/@min = 1 and $editInfo/@max = 1) or
+          ($editInfo and $editInfo/@min = 1 and $isFirst)">
           <xsl:value-of select="true()"/>
         </xsl:when>
         <xsl:otherwise>
@@ -150,6 +152,7 @@
                     <xsl:with-param name="type" select="$type"/>
                     <xsl:with-param name="tooltip" select="$tooltip"/>
                     <xsl:with-param name="isRequired" select="$isRequired"/>
+                    <xsl:with-param name="isReadOnly" select="$isReadOnly"/>
                     <xsl:with-param name="isDisabled" select="$isDisabled"/>
                     <xsl:with-param name="editInfo" select="$editInfo"/>
                     <xsl:with-param name="parentEditInfo" select="$parentEditInfo"/>
@@ -190,6 +193,7 @@
                   <xsl:with-param name="tooltip" select="concat($schema, '|', name(.), '|', name(..), '|', $xpath)"/>
                   <xsl:with-param name="isRequired" select="$isRequired"/>
                   <xsl:with-param name="isDisabled" select="$isDisabled"/>
+                  <xsl:with-param name="isReadOnly" select="$isReadOnly"/>
                   <xsl:with-param name="editInfo" select="$editInfo"/>
                   <xsl:with-param name="parentEditInfo" select="$parentEditInfo"/>
                   <xsl:with-param name="listOfValues" select="$listOfValues"/>
@@ -745,6 +749,7 @@
     <xsl:param name="tooltip" required="no"/>
     <xsl:param name="isRequired"/>
     <xsl:param name="isDisabled"/>
+    <xsl:param name="isReadOnly"/>
     <xsl:param name="editInfo"/>
     <xsl:param name="parentEditInfo"/>
     <xsl:param name="checkDirective" select="$isRequired"/>
@@ -774,6 +779,9 @@
           </xsl:if>
           <xsl:if test="$isDisabled">
             <xsl:attribute name="disabled" select="'disabled'"/>
+          </xsl:if>
+          <xsl:if test="$isReadOnly">
+            <xsl:attribute name="readonly" select="'readonly'"/>
           </xsl:if>
           <xsl:if test="$tooltip">
             <xsl:attribute name="data-gn-field-tooltip" select="$tooltip"/>
@@ -908,6 +916,10 @@
             <xsl:if test="$isDisabled">
               <xsl:attribute name="disabled" select="'disabled'"/>
             </xsl:if>
+           <xsl:if test="$isReadOnly">
+              <xsl:attribute name="readonly" select="'readonly'"/>
+           </xsl:if>
+
             <xsl:if test="$lang">
               <xsl:attribute name="lang" select="$lang"/>
             </xsl:if>

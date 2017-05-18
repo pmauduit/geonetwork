@@ -1151,6 +1151,7 @@
     <module>services</module>
     <module>wro4j</module>
     <module>inspire-atom</module>
+    <module>schematronjob</module>
   </modules>
 
   <profiles>

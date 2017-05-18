@@ -8,7 +8,7 @@
     ">
   <context:component-scan base-package="org.georchestra.geonetwork" />
   <!-- Job checking validation against schematron -->
-      <bean id="schematronValidator" class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
+      <bean id="schematronValidatorJob" class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
         <property name="jobClass" value="org.georchestra.geonetwork.SchematronJob" />
         <property name="jobDataAsMap">
             <map>
@@ -28,9 +28,9 @@
     </bean>
       
     <bean id="schematronJobTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
-        <property name="jobDetail" ref="schematronValidator" />
+        <property name="jobDetail" ref="schematronValidatorJob" />
         <!-- fires every 5 minutes -->
-        <property name="cronExpression" value="0 0/5 * * * *" />
+        <property name="cronExpression" value="0 5 * * * ? " />
         <property name="startDelay" value="60000"/>
     </bean>
     

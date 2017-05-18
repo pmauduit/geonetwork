@@ -1,48 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans default-lazy-init="true" xmlns="http://www.springframework.org/schema/beans"
   xmlns:context="http://www.springframework.org/schema/context" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
-		http://www.springframework.org/schema/beans
-		http://www.springframework.org/schema/beans/spring-beans.xsd
-        http://www.springframework.org/schema/context
-        http://www.springframework.org/schema/context/spring-context-3.2.xsd
-    ">
+  http://www.springframework.org/schema/beans
+  http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://www.springframework.org/schema/context
+  http://www.springframework.org/schema/context/spring-context-3.2.xsd
+  ">
   <context:component-scan base-package="org.georchestra.geonetwork" />
   <!-- Job checking validation against schematron -->
-      <bean id="schematronValidatorJob" class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
-        <property name="jobClass" value="org.georchestra.geonetwork.SchematronJob" />
-        <property name="jobDataAsMap">
-            <map>
-                <entry key="contextSource" value-ref="contextSource" />
-                <entry key="ldapUserSearchBase" value="${ldap.sync.user.search.base}" />
-                <entry key="ldapUserSearchFilter" value="${ldap.sync.user.search.filter}" />
-                <entry key="ldapUserSearchAttribute" value="${ldap.sync.user.search.attribute}" />
-                
-                <entry key="createNonExistingLdapGroup" value="${ldap.privilege.create.nonexisting.groups}"/>
-                <entry key="ldapGroupSearchBase" value="${ldap.sync.group.search.base}" />
-                <entry key="ldapGroupSearchFilter" value="${ldap.sync.group.search.filter}" />
-                <entry key="ldapGroupSearchAttribute" value="${ldap.sync.group.search.attribute}" />
-                <entry key="ldapGroupSearchPattern" value="${ldap.sync.group.search.pattern}" />
-                
-            </map>
-        </property>
-    </bean>
-      
-    <bean id="schematronJobTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
-        <property name="jobDetail" ref="schematronValidatorJob" />
-        <!-- fires every 5 minutes -->
-        <property name="cronExpression" value="0 5 * * * ? " />
-        <property name="startDelay" value="60000"/>
-    </bean>
-    
-    <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
-        <property name="jobFactory">
-            <bean class="org.fao.geonet.util.spring.AutowiringSpringBeanJobFactory"/>
-        </property>
-        <property name="triggers">
-            <list>
-                <ref bean="schematronJobTrigger" />
-            </list>
-        </property>
-    </bean>
-    
+  <bean id="schematronValidatorJob" class="org.springframework.scheduling.quartz.JobDetailFactoryBean">
+    <property name="jobClass" value="org.georchestra.geonetwork.SchematronJob" />
+  </bean>
+
+  <bean id="schematronJobTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+    <property name="jobDetail" ref="schematronValidatorJob" />
+    <!-- fires every 5 minutes -->
+    <property name="cronExpression" value="0 5 * * * ? " />
+    <property name="startDelay" value="60000"/>
+  </bean>
+
+  <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+    <property name="jobFactory">
+      <bean class="org.fao.geonet.util.spring.AutowiringSpringBeanJobFactory"/>
+    </property>
+    <property name="triggers">
+      <list>
+        <ref bean="schematronJobTrigger" />
+      </list>
+    </property>
+  </bean>
+
 </beans>

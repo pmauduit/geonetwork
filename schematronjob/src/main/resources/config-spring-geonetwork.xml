@@ -16,8 +16,8 @@
 
   <bean id="schematronJobTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
     <property name="jobDetail" ref="schematronValidatorJob" />
-    <!-- fires every 2 minutes -->
-    <property name="cronExpression" value="0 0/2 * * * ?" />
+    <!-- fires every 2 hours -->
+    <property name="cronExpression" value="0 0 0/2 * * ?" />
     <property name="startDelay" value="1000"/>
   </bean>
 
